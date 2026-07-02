@@ -1,0 +1,46 @@
+{
+  "@context": {
+    "skos": "http://www.w3.org/2004/02/skos/core#",
+    "@vocab": "https://docs.geostandaarden.nl/nl-sbb/nl-sbb/",
+    "rdfs": "http://www.w3.org/2000/01/rdf-schema#"
+  },
+  "@id": "http://logius.example.org/glossary",
+  "@type": "skos:ConceptScheme",
+  "skos:hasTopConcept": [
+    {
+      "@id": "http://logius.example.org/concept/turning18",
+      "@type": "skos:Concept",
+      "skos:prefLabel": "Turning 18",
+      "skos:altLabel": ["Reaching adulthood", "Becoming an adult", "Eighteenth birthday"],
+      "skos:definition": "Life event in which a person reaches the age of 18 and acquires new legal rights, responsibilities, and eligibility for public services."
+    },
+    {
+      "@id": "http://logius.example.org/concept/studying",
+      "@type": "skos:Concept",
+      "skos:prefLabel": "Studying",
+      "skos:altLabel": ["Being in education", "Education participation"],
+      "skos:definition": "Situation in which a person is enrolled in a recognized educational institution."
+    },
+    {
+      "@id": "http://logius.example.org/concept/first-job",
+      "@type": "skos:Concept",
+      "skos:prefLabel": "First Job",
+      "skos:altLabel": ["First employment", "Entering the workforce"],
+      "skos:definition": "Life event in which a person starts their first paid employment."
+    },
+    {
+      "@id": "http://logius.example.org/concept/moving-out",
+      "@type": "skos:Concept",
+      "skos:prefLabel": "Moving Out",
+      "skos:altLabel": ["Leaving the parental home", "Independent living"],
+      "skos:definition": "Life event in which a person begins living independently from their parents or guardians."
+    },
+    {
+      "@id": "http://logius.example.org/concept/living-together",
+      "@type": "skos:Concept",
+      "skos:prefLabel": "Living Together",
+      "skos:altLabel": ["Cohabitation", "Shared household"],
+      "skos:definition": "Situation in which two or more people share a household."
+    }
+  ]
+}

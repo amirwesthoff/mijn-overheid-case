@@ -1,0 +1,15 @@
+{
+  "@context": {
+    "skos": "http://www.w3.org/2004/02/skos/core#",
+    "nl-sbb": "http://begrippen.nlbegrip.nl/sbb/id/concept/",
+    "dct": "http://purl.org/dc/terms/",
+    "foaf": "http://xmlns.com/foaf/0.1/",
+    "name": "skos:prefLabel",
+    "other_names": {"@id": "skos:altLabel", "@container": "@set"},
+    "notes": "skos:definition",
+    "relatedTo": {"@id": "skos:relatedMatch", "@type": "@id"},
+    "narrowTo": {"@id": "skos:narrowMatch", "@type": "@id"},
+    "source": "dct:source",
+    "page": {"@id": "foaf:page", "@type": "@id"}
+  }
+}

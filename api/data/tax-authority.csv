@@ -1,0 +1,6 @@
+name,other_names,notes,relatedTo,narrowTo,page,source
+Healthcare Allowance,"Health Benefit","Financial contribution towards health insurance costs for eligible citizens.",http://logius.example.org/concept/turning18,,https://www.belastingdienst.nl/wps/wcm/connect/bldcontenten/belastingdienst/individuals,"Tax Authority"
+Taxpayer,"Taxable Person","Person who may be liable to pay taxes under Dutch law.",http://logius.example.org/concept/turning18,,https://www.belastingdienst.nl/,"Tax Authority"
+Income,"Earnings|Personal Income","Monetary compensation received from work, benefits, or other sources.",http://logius.example.org/concept/first-job,,https://www.belastingdienst.nl/,"Tax Authority"
+Tax Return,"Income Tax Return","Formal declaration of income and deductible expenses submitted to tax authorities.",http://logius.example.org/concept/first-job,,https://www.belastingdienst.nl/,"Tax Authority"
+Benefits Partner,"Allowance Partner","Person whose circumstances affect the calculation of benefits and allowances.",http://logius.example.org/concept/living-together,,https://www.belastingdienst.nl/,"Tax Authority"

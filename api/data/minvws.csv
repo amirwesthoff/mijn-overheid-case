@@ -1,0 +1,6 @@
+term,variants,meaning,relatedTo,page,source
+Health Insurance,"Basic Health Insurance","Mandatory insurance covering healthcare costs.",http://logius.example.org/concept/turning18,https://www.rijksoverheid.nl/onderwerpen/ziektekostenverzekeringen,"MinVWS (Ministerie van Volksgezondheid, Welzijn en Sport)"
+Insured Person,"Policy Member","Person covered under a health insurance policy.",http://logius.example.org/concept/turning18,https://www.rijksoverheid.nl/onderwerpen/ziektekostenverzekeringen,"MinVWS (Ministerie van Volksgezondheid, Welzijn en Sport)"
+Policy Holder,"Insurance Contract Holder","Person in whose name an insurance contract is registered.",http://logius.example.org/concept/turning18,https://www.rijksoverheid.nl/onderwerpen/ziektekostenverzekeringen,"MinVWS (Ministerie van Volksgezondheid, Welzijn en Sport)"
+Insurance Premium,"Monthly Premium","Recurring payment required to maintain health insurance coverage.",http://logius.example.org/concept/turning18,https://www.rijksoverheid.nl/onderwerpen/ziektekostenverzekeringen,"MinVWS (Ministerie van Volksgezondheid, Welzijn en Sport)"
+Deductible,"Excess","Amount that must be paid by the insured before coverage applies.",http://orgC.example.org/concept/health-insurance,https://www.rijksoverheid.nl/onderwerpen/ziektekostenverzekeringen,"MinVWS (Ministerie van Volksgezondheid, Welzijn en Sport)"

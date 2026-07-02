@@ -1,0 +1,15 @@
+{
+  "@context": {
+    "skos": "http://www.w3.org/2004/02/skos/core#",
+    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+    "nl-sbb": "https://docs.geostandaarden.nl/nl-sbb/nl-sbb/",
+    "prefLabel": "skos:prefLabel",
+    "altLabel": "skos:altLabel",
+    "definition": "skos:definition",
+    "Concept": "skos:Concept",
+    "ConceptScheme": "skos:ConceptScheme"
+  },
+  "@id": "https://docs.geostandaarden.nl/nl-sbb/nl-sbb/",
+  "@type": "skos:ConceptScheme",
+  "rdfs:label": "NL-SBB SKOS Concept Scheme"
+}

@@ -1,0 +1,6 @@
+term,aliases,description,relatedTo,closeTo,broadTo,page,source
+Voting Rights,"Right to Vote|Electoral Rights","Legal right to participate in elections.",http://logius.example.org/concept/turning18,http://logius.example.org/concept/turning18,,https://www.rijksoverheid.nl/onderwerpen/kiesrecht,"VNG (Vereniging Nederlandse Gemeenten)"
+Eligible Voter,"Registered Voter","Citizen who satisfies the requirements for voting in elections.",,http://logius.example.org/concept/turning18,,https://www.rijksoverheid.nl/onderwerpen/kiesrecht,"VNG (Vereniging Nederlandse Gemeenten)"
+Youth Support Service,"Youth Assistance Desk|Youth Service Desk","Municipal service supporting young people with education, work, or income issues.",http://logius.example.org/concept/turning18,,,https://vng.nl/organisatie/over-vng,"VNG (Vereniging Nederlandse Gemeenten)"
+Resident,"Municipal Resident","Person registered as living within a municipality.",, ,http://logius.example.org/concept/turning18,https://www.gemeente.nl/inschrijven-bij-de-gemeente,"VNG (Vereniging Nederlandse Gemeenten)"
+Change of Address,"Moving Residence","Registration of a new residential address with the municipality.",http://logius.example.org/concept/moving-out,,,https://www.gemeente.nl/inschrijven-bij-de-gemeente,"VNG (Vereniging Nederlandse Gemeenten)"

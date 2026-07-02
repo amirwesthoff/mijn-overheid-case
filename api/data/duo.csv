@@ -1,0 +1,6 @@
+title,alt_labels,explanation,relatedTo,narrowTo,page,source
+Student,"Learner|Enrolled Student","A person enrolled in a recognized educational programme.",http://logius.example.org/concept/turning18,,https://www.duo.nl/particulier/,"DUO (Dienst Uitvoering Onderwijs)"
+Student Finance,"Study Grant|Student Funding","Financial support available to eligible students for education-related expenses.",http://logius.example.org/concept/turning18,,https://www.duo.nl/particulier/studiefinanciering,"DUO (Dienst Uitvoering Onderwijs)"
+Student Travel Product,"Student Travel Pass|Student Transport Benefit","Public transport benefit available to eligible students.",http://logius.example.org/concept/turning18,,https://www.duo.nl/particulier/ov-studentenkaart,"DUO (Dienst Uitvoering Onderwijs)"
+Vocational Education Student,"VET Student|MBO Student","Student enrolled in vocational education.",,http://logius.example.org/concept/studying,https://www.duo.nl/particulier/,"DUO (Dienst Uitvoering Onderwijs)"
+Higher Education Student,"University Student|College Student","Student enrolled in higher professional or university education.",,http://logius.example.org/concept/studying,https://www.duo.nl/particulier/,"DUO (Dienst Uitvoering Onderwijs)"

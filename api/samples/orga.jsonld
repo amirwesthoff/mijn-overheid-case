@@ -1,0 +1,18 @@
+{
+  "@context": {
+    "@vocab": "http://example.org/ontology#",
+    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+    "schema": "http://schema.org/"
+  },
+  "@id": "http://orga.example.org/glossary",
+  "@type": "Dataset",
+  "hasTerm": [
+    {
+      "@id": "http://orga.example.org/term/id-check-for-18",
+      "@type": "BusinessTerm",
+      "rdfs:label": "ID check for 18+",
+      "schema:description": "Internal term describing the process to verify someone is 18 or older.",
+      "relatedToLifeEvent": "http://logius.example.org/lifeevent/turning18"
+    }
+  ]
+}
