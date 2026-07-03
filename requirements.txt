@@ -3,5 +3,5 @@ uvicorn[standard]==0.22.0
 rdflib==6.3.2
 rdflib-jsonld==0.6.0
 streamlit==1.25.0
-openai==1.9.0
+openai>=1.40.0,<2.0.0
 requests==2.31.0

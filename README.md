@@ -4,11 +4,14 @@ Streamlit + rdflib demo that merges JSON-LD/CSV glossaries into an RDF graph, ru
 
 Quick start (local development)
 
+Python version note (Windows): use Python 3.12 (or 3.11) for this PoC. Newer versions such as 3.14 can trigger NumPy source builds and fail without a C/C++ toolchain.
+
 - Create a Python venv and install deps (example):
 
 ```powershell
-python -m venv .venv
+py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
@@ -41,8 +44,9 @@ Quick start
 1. Create a Python venv and install deps:
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\activate
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 

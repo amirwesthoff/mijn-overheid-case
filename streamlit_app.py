@@ -3,6 +3,7 @@ import requests
 import os
 import json
 import streamlit.components.v1 as components
+import re
 from rdflib import Namespace, URIRef
 from rdflib import Graph
 from rdflib.namespace import RDFS, SKOS
@@ -109,7 +110,7 @@ def ask_openai(api_key: str, system: str, user: str, model: str = "gpt-4o-mini")
 
 import json
 
-st.title("NL-SBB demo — Business Glossary Federation")
+st.title("NL-SBB / MijnOverheid demo — Business Glossary Federation")
 
 
 def render_network_from_graph(g):
@@ -192,8 +193,8 @@ def build_vis_html(nodes, edges):
                 const container = document.getElementById('network');
                 const data = {{ nodes: nodes, edges: edges }};
                 const options = {{
-                    nodes: {{ shape: 'dot', size: 16 }},
-                    edges: {{ arrows: 'to', smooth: true }},
+                    nodes: {{ shape: 'dot', size: 16, font: {{ size: 18 }} }},
+                    edges: {{ arrows: 'to', smooth: true, font: {{ size: 16, align: 'middle' }} }},
                     physics: {{
                         stabilization: {{ enabled: true, iterations: 1000 }}
                     }},
@@ -213,11 +214,9 @@ def build_vis_html(nodes, edges):
         return html
 
 st.sidebar.header("Load glossaries")
-
-# LLM settings in sidebar (optional - can be provided via env or secrets)
-st.sidebar.subheader("LLM")
-openai_key = st.sidebar.text_input("OpenAI API key", type="password")
-model = st.sidebar.selectbox("Model", options=["gpt-4o-mini", "gpt-4o"], index=0)
+# LLM config comes from env/secrets to keep the sidebar focused on glossary loading.
+openai_key = None
+model = os.environ.get("OPENAI_MODEL") or "gpt-4o-mini"
 
 
 def get_openai_key(sidebar_val=None):
@@ -265,6 +264,27 @@ def load_endpoints(endpoints):
     raw = {}
     g = Graph()
     errors = []
+    logius_aliases = {}
+
+    def slugify(text, compact=False):
+        text = (text or "").lower().strip()
+        text = re.sub(r"[^a-z0-9\s-]", " ", text)
+        parts = [p for p in re.split(r"[\s-]+", text) if p]
+        if compact:
+            return "".join(parts)
+        return "-".join(parts)
+
+    def logius_concept_uri_from_row(row):
+        label = (
+            row.get('label')
+            or row.get('title')
+            or row.get('name')
+            or row.get('term')
+            or ""
+        )
+        slug = slugify(str(label), compact=False)
+        return f"http://logius.example.org/concept/{slug}" if slug else None
+
     try:
         for ep, method in endpoints:
             try:
@@ -299,10 +319,29 @@ def load_endpoints(endpoints):
                         from urllib.parse import urlparse, quote
                         for i, r in enumerate(rows, start=1):
                             node = {'@context': ctx}
-                            node['@id'] = f"{url}#row{i}"
+                            is_logius = '/logius/glossary' in url
+                            if is_logius:
+                                canonical = logius_concept_uri_from_row(r)
+                                node['@id'] = canonical or f"{url}#row{i}"
+                                if canonical:
+                                    # Capture common alias variants used by external mappings.
+                                    compact = slugify(
+                                        r.get('label') or r.get('title') or r.get('name') or r.get('term') or '',
+                                        compact=True,
+                                    )
+                                    logius_aliases[canonical] = canonical
+                                    if compact:
+                                        logius_aliases[f"http://logius.example.org/concept/{compact}"] = canonical
+                            else:
+                                node['@id'] = f"{url}#row{i}"
+
                             for k, v in r.items():
                                 if v is None:
                                     continue
+                                if isinstance(v, str):
+                                    v = v.strip()
+                                    if not v:
+                                        continue
                                 # handle lists encoded in cell values
                                 if isinstance(v, str) and ('|' in v or ';' in v):
                                     vals = [s.strip() for s in v.replace(';','|').split('|') if s.strip()]
@@ -315,9 +354,13 @@ def load_endpoints(endpoints):
                                     for val in vals:
                                         if not val:
                                             continue
+                                        if isinstance(val, str):
+                                            val = val.strip()
+                                            if not val:
+                                                continue
                                         parsed = urlparse(val)
                                         if parsed.scheme:
-                                            resolved.append(val)
+                                            resolved.append(logius_aliases.get(val, val))
                                         else:
                                             # construct an absolute IRI under the source URL to avoid file:/// expansion
                                             resolved.append(f"{url}#{quote(val)}")
@@ -379,7 +422,60 @@ def render_mermaid_html(diagram: str, height: int = 360):
 
 def detect_logius_concept(g, question, top_n=5):
     """Return top candidate Logius concepts from graph as (uri, label, score)"""
-    ql = question.lower()
+    def normalize_text(text):
+        text = (text or "").lower()
+        text = re.sub(r"[^a-z0-9\s]", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        return text
+
+    def normalize_token(token):
+        token = token.strip().lower()
+        # light stemming for common English gerund/plural forms used in labels
+        if len(token) > 5 and token.endswith("ing"):
+            token = token[:-3]
+        elif len(token) > 4 and token.endswith("ed"):
+            token = token[:-2]
+        elif len(token) > 3 and token.endswith("s"):
+            token = token[:-1]
+        return token
+
+    def tokenize(text):
+        stopwords = {
+            "the", "a", "an", "i", "me", "my", "you", "your", "we", "our",
+            "what", "which", "who", "when", "where", "why", "how", "do", "does",
+            "did", "is", "are", "am", "to", "for", "of", "on", "in", "at", "and",
+            "or", "with", "about", "need", "next", "month"
+        }
+        raw = normalize_text(text).split()
+        return [normalize_token(t) for t in raw if t and t not in stopwords]
+
+    def score_label_against_question(label_text, question_text):
+        label_norm = normalize_text(label_text)
+        question_norm = normalize_text(question_text)
+
+        label_tokens = set(tokenize(label_text))
+        question_tokens = set(tokenize(question_text))
+
+        # direct phrase hit should be very confident
+        if label_norm and label_norm in question_norm:
+            return 0.99
+
+        overlap = len(label_tokens & question_tokens)
+        coverage = (overlap / len(label_tokens)) if label_tokens else 0.0
+        jaccard = (overlap / len(label_tokens | question_tokens)) if (label_tokens or question_tokens) else 0.0
+        fuzzy = SequenceMatcher(None, question_norm, label_norm).ratio()
+
+        # handle close variants like "turn" vs "turning" when the key number is present
+        age_bonus = 0.0
+        label_has_turn = any(t.startswith("turn") for t in label_tokens)
+        question_has_turn = any(t.startswith("turn") for t in question_tokens)
+        shared_digits = any(t.isdigit() and t in question_tokens for t in label_tokens)
+        if label_has_turn and question_has_turn and shared_digits:
+            age_bonus = 0.25
+
+        score = (0.55 * coverage) + (0.25 * jaccard) + (0.20 * fuzzy) + age_bonus
+        return min(score, 0.99)
+
     candidates = []
     for s, p, o in g:
         # find prefLabel/altLabel for subjects that have dct:source Logius
@@ -394,8 +490,7 @@ def detect_logius_concept(g, question, top_n=5):
             if not has_logius:
                 continue
             label = str(o)
-            # compute simple similarity against question
-            score = SequenceMatcher(None, ql, label.lower()).ratio()
+            score = score_label_against_question(label, question)
             candidates.append((str(subj), label, score))
 
     # deduplicate by uri keeping max score
@@ -409,34 +504,47 @@ def detect_logius_concept(g, question, top_n=5):
 
 
 def query_concept_facts(g, concept_uri):
-    # SPARQL template to fetch labels, definitions, sources, pages and related concepts
+    # Fetch core concept data plus mapped concepts in both directions.
+    # Most external org terms point TO Logius concepts, so inbound edges are essential.
     q = f"""
-    SELECT ?s ?label ?def ?source ?page ?rel ?relLabel WHERE {{
+    SELECT ?s ?label ?def ?source ?page ?linked ?linkPred ?linkedLabel ?linkedDef ?linkedSource ?linkedPage WHERE {{
       BIND(<{concept_uri}> AS ?s)
       OPTIONAL {{ ?s <http://www.w3.org/2004/02/skos/core#prefLabel> ?label }}
       OPTIONAL {{ ?s <http://www.w3.org/2004/02/skos/core#definition> ?def }}
       OPTIONAL {{ ?s <http://purl.org/dc/terms/source> ?source }}
       OPTIONAL {{ ?s <http://xmlns.com/foaf/0.1/page> ?page }}
       OPTIONAL {{
-        {{ ?s <http://www.w3.org/2004/02/skos/core#relatedMatch> ?rel }}
-        UNION {{ ?s <http://www.w3.org/2004/02/skos/core#narrowMatch> ?rel }}
-        UNION {{ ?s <http://www.w3.org/2004/02/skos/core#closeMatch> ?rel }}
-        UNION {{ ?s <http://www.w3.org/2004/02/skos/core#broadMatch> ?rel }}
-        OPTIONAL {{ ?rel <http://www.w3.org/2004/02/skos/core#prefLabel> ?relLabel }}
+        {{ ?s ?linkPred ?linked }}
+        UNION
+        {{ ?linked ?linkPred ?s }}
+        FILTER(?linkPred IN (
+          <http://www.w3.org/2004/02/skos/core#relatedMatch>,
+          <http://www.w3.org/2004/02/skos/core#narrowMatch>,
+          <http://www.w3.org/2004/02/skos/core#closeMatch>,
+          <http://www.w3.org/2004/02/skos/core#broadMatch>
+        ))
+        OPTIONAL {{ ?linked <http://www.w3.org/2004/02/skos/core#prefLabel> ?linkedLabel }}
+        OPTIONAL {{ ?linked <http://www.w3.org/2004/02/skos/core#definition> ?linkedDef }}
+        OPTIONAL {{ ?linked <http://purl.org/dc/terms/source> ?linkedSource }}
+        OPTIONAL {{ ?linked <http://xmlns.com/foaf/0.1/page> ?linkedPage }}
       }}
     }}
     """
     res = g.query(q)
     facts = []
-    related = []
+    linked = []
     for row in res:
         s = row[0] if len(row) > 0 else None
         label = row[1] if len(row) > 1 else None
         definition = row[2] if len(row) > 2 else None
         source = row[3] if len(row) > 3 else None
         page = row[4] if len(row) > 4 else None
-        rel = row[5] if len(row) > 5 else None
-        relLabel = row[6] if len(row) > 6 else None
+        linked_uri = row[5] if len(row) > 5 else None
+        link_pred = row[6] if len(row) > 6 else None
+        linked_label = row[7] if len(row) > 7 else None
+        linked_def = row[8] if len(row) > 8 else None
+        linked_source = row[9] if len(row) > 9 else None
+        linked_page = row[10] if len(row) > 10 else None
         facts.append({
             's': str(s) if s else None,
             'label': str(label) if label else None,
@@ -444,16 +552,59 @@ def query_concept_facts(g, concept_uri):
             'source': str(source) if source else None,
             'page': str(page) if page else None,
         })
-        if rel:
-            related.append({'rel': str(rel), 'relLabel': str(relLabel) if relLabel else None})
+        if linked_uri:
+            linked.append({
+                'uri': str(linked_uri),
+                'pred': str(link_pred) if link_pred else None,
+                'label': str(linked_label) if linked_label else None,
+                'def': str(linked_def) if linked_def else None,
+                'source': str(linked_source) if linked_source else None,
+                'page': str(linked_page) if linked_page else None,
+            })
     # collapse facts to a single representative (they will repeat per related)
     rep = {}
     for f in facts:
         for k, v in f.items():
             if v:
                 rep[k] = v
-    rep['related'] = related
+    dedup = {}
+    for l in linked:
+        key = l.get('uri')
+        if key and key not in dedup:
+            dedup[key] = l
+    rep['linked'] = list(dedup.values())
     return rep
+
+
+def get_graph_sources(g):
+    """Return sorted human-readable dct:source values present in the current graph."""
+    sources = {str(o) for _, _, o in g.triples((None, DCT.source, None))}
+    return sorted(sources)
+
+
+def verify_url(url: str):
+    """Return (is_reachable, normalized_url, status_or_error), cached in session state."""
+    if not url or not isinstance(url, str):
+        return False, url, "invalid"
+
+    url = url.strip()
+    if not (url.startswith("http://") or url.startswith("https://")):
+        return False, url, "non-http"
+
+    cache = st.session_state.setdefault('url_check_cache', {})
+    if url in cache:
+        return cache[url]
+
+    try:
+        r = requests.head(url, allow_redirects=True, timeout=5)
+        if r.status_code >= 400 or r.status_code == 405:
+            r = requests.get(url, allow_redirects=True, timeout=5, stream=True)
+        result = (r.status_code < 400, r.url, str(r.status_code))
+    except Exception as e:
+        result = (False, url, f"error:{type(e).__name__}")
+
+    cache[url] = result
+    return result
 
 # Always show the main tabs. Contents depend on whether data has been loaded.
 tab1, tab2, tab3, tab4 = st.tabs(["Architecture", "Glossaries", "Graph", "Ask"])
@@ -463,14 +614,16 @@ with tab1:
     diagram = """
     graph LR
       subgraph APIs
-        L[Logius API] -->|CSV + mapping| G
-        D[DUO API] -->|CSV + mapping| G
-        T[Tax Authority API] -->|CSV + mapping| G
-        M[MinVWS API] -->|CSV + mapping| G
-        V[VNG API] -->|CSV + mapping| G
+
+        D[DUO Glossary API] -->|mapping to NL-SBB| G
+        T[Tax Authority Glossary API] -->|mapping to NL-SBB| G
+        M[MinVWS Glossary API] -->|mapping to NL-SBB| G
+        V[VNG Glossary API] -->|mapping to NL-SBB| G
       end
-      subgraph Integration
-        G[RDF Integration Layer]\n(merge JSON-LD into RDFLib Graph)
+      subgraph MijnOverheid
+                G[Standardisation based on NL-SBB]
+                Gdesc[(poll to merge with Life Event glossary)]
+                G --> Gdesc
         G --> SP[SPARQL queries]
         G --> QA[LLM synthesis]
       end
@@ -524,6 +677,9 @@ with tab3:
 with tab4:
     st.subheader("Ask a question")
     g = st.session_state.get('rdflib_graph_obj')
+    active_sources = get_graph_sources(g) if g else []
+    if active_sources:
+        st.caption(f"Active sources in current graph: {', '.join(active_sources)}")
     question = st.text_input("Natural language question (e.g. 'Which organisations link to the Turning 18 life event?')")
     ask_clicked = st.button("Ask", key="ask_button")
     if ask_clicked:
@@ -558,6 +714,8 @@ with tab4:
 
                 if chosen_uri:
                     facts = query_concept_facts(g, chosen_uri)
+                    linked_rows = []
+                    verified_urls = set()
                     # Build structured context for LLM
                     snippet_lines = []
                     if facts.get('label'):
@@ -567,18 +725,76 @@ with tab4:
                     if facts.get('source'):
                         snippet_lines.append(f"Source: {facts.get('source')}")
                     if facts.get('page'):
-                        snippet_lines.append(f"Page: {facts.get('page')}")
-                    if facts.get('related'):
-                        for r in facts['related']:
-                            snippet_lines.append(f"Related: {r.get('relLabel') or r.get('rel')} -> {r.get('rel')}")
+                        ok, checked_url, status = verify_url(facts.get('page'))
+                        if ok:
+                            verified_urls.add(checked_url)
+                            snippet_lines.append(f"VerifiedPage: {checked_url}")
+                        else:
+                            snippet_lines.append(f"PageUnverified: {facts.get('page')} ({status})")
+                    if facts.get('linked'):
+                        snippet_lines.append("Mapped concepts from active sources:")
+                        for r in facts['linked']:
+                            page_val = r.get('page') or ''
+                            page_status = ""
+                            if page_val:
+                                ok, checked_url, status = verify_url(page_val)
+                                if ok:
+                                    page_val = checked_url
+                                    verified_urls.add(checked_url)
+                                    page_status = "verified"
+                                else:
+                                    page_status = f"unverified:{status}"
+
+                            snippet_lines.append(
+                                "- "
+                                f"Source={r.get('source') or 'unknown'}; "
+                                f"Label={r.get('label') or r.get('uri')}; "
+                                f"Definition={r.get('def') or ''}; "
+                                f"Page={page_val}; "
+                                f"PageStatus={page_status}; "
+                                f"Predicate={r.get('pred') or ''}"
+                            )
+
+                    if facts.get('linked'):
+                        for r in facts['linked']:
+                            page_val = r.get('page') or ""
+                            page_status = ""
+                            if page_val:
+                                ok, checked_url, status = verify_url(page_val)
+                                if ok:
+                                    page_val = checked_url
+                                    page_status = "verified"
+                                else:
+                                    page_status = f"unverified:{status}"
+
+                            linked_rows.append({
+                                "source": r.get('source') or "unknown",
+                                "label": r.get('label') or r.get('uri'),
+                                "definition": r.get('def') or "",
+                                "page": page_val,
+                                "page_status": page_status,
+                                "relation": (r.get('pred') or '').split('#')[-1] if r.get('pred') else "",
+                            })
 
                     snippet = "\n".join(snippet_lines)
+                    allowed_sources_text = ", ".join(active_sources) if active_sources else "(none)"
+                    verified_urls_text = ", ".join(sorted(verified_urls)) if verified_urls else "(none)"
                     system = (
-                        "You are a concise assistant. Given structured facts about a Logius concept,"
-                        " produce per-organisation actionable next steps a citizen should take."
-                        " Always cite the authoritative page URLs when available and keep answers brief."
+                        "You are a concise assistant that MUST stay grounded in provided facts only. "
+                        "Only mention organisations that are explicitly present in the allowed sources list. "
+                        "If a requested organisation or action is not in the facts, say that the current dataset "
+                        "does not contain enough information. Cite only URLs from the verified URL allowlist. "
+                        "Never invent or transform URLs."
                     )
-                    user = f"Question: {question}\n\nConcept facts:\n{snippet}\n\nReturn concise per-organisation next steps and cite sources."
+                    user = (
+                        f"Question: {question}\n\n"
+                        f"Allowed sources for this run: {allowed_sources_text}\n\n"
+                        f"Verified URL allowlist: {verified_urls_text}\n\n"
+                        f"Concept facts:\n{snippet}\n\n"
+                        "Return concise per-organisation next steps based ONLY on the facts above. "
+                        "Use mapped concepts from active sources to provide source-specific details when present. "
+                        "Do not add organisations outside the allowed sources list."
+                    )
                     key = get_openai_key(openai_key)
                     if not key:
                         st.error("OpenAI API key is required. Set it in the sidebar, `OPENAI_API_KEY` env var, or in `.streamlit/secrets.toml` under `OPENAI_API_KEY`.")
@@ -587,6 +803,11 @@ with tab4:
                             answer = ask_openai(key, system, user, model=model)
                             st.subheader("Answer")
                             st.write(answer)
+                            if not verified_urls:
+                                st.caption("No verified external URLs were available for this answer.")
+                            if linked_rows:
+                                with st.expander("Mapped concepts used for this answer", expanded=False):
+                                    st.table(linked_rows)
                         except Exception as e:
                             st.error(f"OpenAI request failed: {e}")
                     # done with this ask interaction
@@ -618,8 +839,17 @@ with tab4:
                         st.table(facts)
 
                     snippet = "\n".join([f"- {f['label']}: {f['desc']} (source: {f['s']})" for f in facts])
-                    system = "You are a helpful assistant that synthesizes brief answers from factual snippets. Always cite the source URIs provided."
-                    user = f"Question: {question}\n\nFacts:\n{snippet}\n\nAnswer concisely and mention source URIs."
+                    allowed_sources_text = ", ".join(active_sources) if active_sources else "(none)"
+                    system = (
+                        "You are a helpful assistant that synthesizes brief answers from factual snippets only. "
+                        "Do not introduce organisations outside the allowed sources list and cite source URIs."
+                    )
+                    user = (
+                        f"Question: {question}\n\n"
+                        f"Allowed sources for this run: {allowed_sources_text}\n\n"
+                        f"Facts:\n{snippet}\n\n"
+                        "Answer concisely based ONLY on these facts and mention source URIs."
+                    )
                     key = get_openai_key(openai_key)
                     if not key:
                         st.error("OpenAI API key is required. Set it in the sidebar, `OPENAI_API_KEY` env var, or in `.streamlit/secrets.toml` under `OPENAI_API_KEY`.")
